@@ -1,224 +1,176 @@
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
- 
-#define M 2
-#define N (1<<M)
- 
-typedef double datatype;
-#define DATATYPE_FORMAT "%4.2g"
-typedef datatype mat[N][N]; // mat[2**M,2**M]  for divide and conquer mult.
-typedef struct
+#include <bits/stdc++.h>
+#include <random> //para implementar el codigo y generar un arreglo de numeros random
+using namespace std::chrono;
+using namespace std;
+
+#define ROW_1 4
+#define COL_1 4
+
+#define ROW_2 4
+#define COL_2 4
+
+void print(string display, vector<vector<int> > matrix,
+		int start_row, int start_column, int end_row,
+		int end_column)
 {
-        int ra, rb, ca, cb;
-} corners; // for tracking rows and columns.
-// A[ra..rb][ca..cb] .. the 4 corners of a matrix.
- 
-// set A[a] = I
-void identity(mat A, corners a)
-{
-    int i, j;
-    for (i = a.ra; i < a.rb; i++)
-        for (j = a.ca; j < a.cb; j++)
-            A[i][j] = (datatype) (i == j);
+	cout << endl << display << " =>" << endl;
+	for (int i = start_row; i <= end_row; i++) {
+		for (int j = start_column; j <= end_column; j++) {
+			cout << setw(10);
+			cout << matrix[i][j];
+		}
+		cout << endl;
+	}
+	cout << endl;
+	return;
 }
- 
-// set A[a] = k
-void set(mat A, corners a, datatype k)
+
+void add_matrix(vector<vector<int> > matrix_A,
+				vector<vector<int> > matrix_B,
+				vector<vector<int> >& matrix_C,
+				int split_index)
 {
-    int i, j;
-    for (i = a.ra; i < a.rb; i++)
-        for (j = a.ca; j < a.cb; j++)
-            A[i][j] = k;
+	for (auto i = 0; i < split_index; i++)
+		for (auto j = 0; j < split_index; j++)
+			matrix_C[i][j]
+				= matrix_A[i][j] + matrix_B[i][j];
 }
- 
-// set A[a] = [random(l..h)].
-void randk(mat A, corners a, double l, double h)
+
+vector<vector<int> >
+multiply_matrix(vector<vector<int> > matrix_A,
+				vector<vector<int> > matrix_B)
 {
-    int i, j;
-    for (i = a.ra; i < a.rb; i++)
-        for (j = a.ca; j < a.cb; j++)
-            A[i][j] = (datatype) (l + (h - l) * (rand() / (double) RAND_MAX));
+	int col_1 = matrix_A[0].size();
+	int row_1 = matrix_A.size();
+	int col_2 = matrix_B[0].size();
+	int row_2 = matrix_B.size();
+
+	if (col_1 != row_2) {
+		cout << "\nError: The number of columns in Matrix "
+				"A must be equal to the number of rows in "
+				"Matrix B\n";
+		return {};
+	}
+
+	vector<int> result_matrix_row(col_2, 0);
+	vector<vector<int> > result_matrix(row_1,
+									result_matrix_row);
+
+	if (col_1 == 1)
+		result_matrix[0][0]
+			= matrix_A[0][0] * matrix_B[0][0];
+	else {
+		int split_index = col_1 / 2;
+
+		vector<int> row_vector(split_index, 0);
+		vector<vector<int> > result_matrix_00(split_index,
+											row_vector);
+		vector<vector<int> > result_matrix_01(split_index,
+											row_vector);
+		vector<vector<int> > result_matrix_10(split_index,
+											row_vector);
+		vector<vector<int> > result_matrix_11(split_index,
+											row_vector);
+
+		vector<vector<int> > a00(split_index, row_vector);
+		vector<vector<int> > a01(split_index, row_vector);
+		vector<vector<int> > a10(split_index, row_vector);
+		vector<vector<int> > a11(split_index, row_vector);
+		vector<vector<int> > b00(split_index, row_vector);
+		vector<vector<int> > b01(split_index, row_vector);
+		vector<vector<int> > b10(split_index, row_vector);
+		vector<vector<int> > b11(split_index, row_vector);
+
+		for (auto i = 0; i < split_index; i++)
+			for (auto j = 0; j < split_index; j++) {
+				a00[i][j] = matrix_A[i][j];
+				a01[i][j] = matrix_A[i][j + split_index];
+				a10[i][j] = matrix_A[split_index + i][j];
+				a11[i][j] = matrix_A[i + split_index]
+									[j + split_index];
+				b00[i][j] = matrix_B[i][j];
+				b01[i][j] = matrix_B[i][j + split_index];
+				b10[i][j] = matrix_B[split_index + i][j];
+				b11[i][j] = matrix_B[i + split_index]
+									[j + split_index];
+			}
+
+		add_matrix(multiply_matrix(a00, b00),
+				multiply_matrix(a01, b10),
+				result_matrix_00, split_index);
+		add_matrix(multiply_matrix(a00, b01),
+				multiply_matrix(a01, b11),
+				result_matrix_01, split_index);
+		add_matrix(multiply_matrix(a10, b00),
+				multiply_matrix(a11, b10),
+				result_matrix_10, split_index);
+		add_matrix(multiply_matrix(a10, b01),
+				multiply_matrix(a11, b11),
+				result_matrix_11, split_index);
+
+		for (auto i = 0; i < split_index; i++)
+			for (auto j = 0; j < split_index; j++) {
+				result_matrix[i][j]
+					= result_matrix_00[i][j];
+				result_matrix[i][j + split_index]
+					= result_matrix_01[i][j];
+				result_matrix[split_index + i][j]
+					= result_matrix_10[i][j];
+				result_matrix[i + split_index]
+							[j + split_index]
+					= result_matrix_11[i][j];
+			}
+
+		result_matrix_00.clear();
+		result_matrix_01.clear();
+		result_matrix_10.clear();
+		result_matrix_11.clear();
+		a00.clear();
+		a01.clear();
+		a10.clear();
+		a11.clear();
+		b00.clear();
+		b01.clear();
+		b10.clear();
+		b11.clear();
+	}
+	return result_matrix;
 }
- 
-// Print A[a]
-void print(mat A, corners a, char *name)
-{
-    int i, j;
-    printf("%s = {\n", name);
-    for (i = a.ra; i < a.rb; i++)
-    {
-        for (j = a.ca; j < a.cb; j++)
-            printf(DATATYPE_FORMAT ", ", A[i][j]);
-        printf("\n");
-    }
-    printf("}\n");
-}
- 
-// C[c] = A[a] + B[b]
-void add(mat A, mat B, mat C, corners a, corners b, corners c)
-{
-    int rd = a.rb - a.ra;
-    int cd = a.cb - a.ca;
-    int i, j;
-    for (i = 0; i < rd; i++)
-    {
-        for (j = 0; j < cd; j++)
-        {
-            C[i + c.ra][j + c.ca] = A[i + a.ra][j + a.ca] + B[i + b.ra][j
-                    + b.ca];
-        }
-    }
-}
- 
-// C[c] = A[a] - B[b]
-void sub(mat A, mat B, mat C, corners a, corners b, corners c)
-{
-    int rd = a.rb - a.ra;
-    int cd = a.cb - a.ca;
-    int i, j;
-    for (i = 0; i < rd; i++)
-    {
-        for (j = 0; j < cd; j++)
-        {
-            C[i + c.ra][j + c.ca] = A[i + a.ra][j + a.ca] - B[i + b.ra][j
-                    + b.ca];
-        }
-    }
-}
- 
-// Return 1/4 of the matrix: top/bottom , left/right.
-void find_corner(corners a, int i, int j, corners *b)
-{
-    int rm = a.ra + (a.rb - a.ra) / 2;
-    int cm = a.ca + (a.cb - a.ca) / 2;
-    *b = a;
-    if (i == 0)
-        b->rb = rm; // top rows
-    else
-        b->ra = rm; // bot rows
-    if (j == 0)
-        b->cb = cm; // left cols
-    else
-        b->ca = cm; // right cols
-}
- 
-// Multiply: A[a] * B[b] => C[c], recursively.
-void mul(mat A, mat B, mat C, corners a, corners b, corners c)
-{
-    corners aii[2][2], bii[2][2], cii[2][2], p;
-    mat P[7], S, T;
-    int i, j, m, n, k;
- 
-    // Check: A[m n] * B[n k] = C[m k]
-    m = a.rb - a.ra;
-    assert(m==(c.rb-c.ra));
-    n = a.cb - a.ca;
-    assert(n==(b.rb-b.ra));
-    k = b.cb - b.ca;
-    assert(k==(c.cb-c.ca));
-    assert(m>0);
- 
-    if (n == 1)
-    {
-        C[c.ra][c.ca] += A[a.ra][a.ca] * B[b.ra][b.ca];
-        return;
-    }
- 
-    // Create the 12 smaller matrix indexes:
-    //  A00 A01   B00 B01   C00 C01
-    //  A10 A11   B10 B11   C10 C11
-    for (i = 0; i < 2; i++)
-    {
-        for (j = 0; j < 2; j++)
-        {
-            find_corner(a, i, j, &aii[i][j]);
-            find_corner(b, i, j, &bii[i][j]);
-            find_corner(c, i, j, &cii[i][j]);
-        }
-    }
- 
-    p.ra = p.ca = 0;
-    p.rb = p.cb = m / 2;
- 
-#define LEN(A) (sizeof(A)/sizeof(A[0]))
-    for (i = 0; i < LEN(P); i++)
-        set(P[i], p, 0);
- 
-#define ST0 set(S,p,0); set(T,p,0)
- 
-    // (A00 + A11) * (B00+B11) = S * T = P0
-    ST0;
-    add(A, A, S, aii[0][0], aii[1][1], p);
-    add(B, B, T, bii[0][0], bii[1][1], p);
-    mul(S, T, P[0], p, p, p);
- 
-    // (A10 + A11) * B00 = S * B00 = P1
-    ST0;
-    add(A, A, S, aii[1][0], aii[1][1], p);
-    mul(S, B, P[1], p, bii[0][0], p);
- 
-    // A00 * (B01 - B11) = A00 * T = P2
-    ST0;
-    sub(B, B, T, bii[0][1], bii[1][1], p);
-    mul(A, T, P[2], aii[0][0], p, p);
- 
-    // A11 * (B10 - B00) = A11 * T = P3
-    ST0;
-    sub(B, B, T, bii[1][0], bii[0][0], p);
-    mul(A, T, P[3], aii[1][1], p, p);
- 
-    // (A00 + A01) * B11 = S * B11 = P4
-    ST0;
-    add(A, A, S, aii[0][0], aii[0][1], p);
-    mul(S, B, P[4], p, bii[1][1], p);
- 
-    // (A10 - A00) * (B00 + B01) = S * T = P5
-    ST0;
-    sub(A, A, S, aii[1][0], aii[0][0], p);
-    add(B, B, T, bii[0][0], bii[0][1], p);
-    mul(S, T, P[5], p, p, p);
- 
-    // (A01 - A11) * (B10 + B11) = S * T = P6
-    ST0;
-    sub(A, A, S, aii[0][1], aii[1][1], p);
-    add(B, B, T, bii[1][0], bii[1][1], p);
-    mul(S, T, P[6], p, p, p);
- 
-    // P0 + P3 - P4 + P6 = S - P4 + P6 = T + P6 = C00
-    add(P[0], P[3], S, p, p, p);
-    sub(S, P[4], T, p, p, p);
-    add(T, P[6], C, p, p, cii[0][0]);
- 
-    // P2 + P4 = C01
-    add(P[2], P[4], C, p, p, cii[0][1]);
- 
-    // P1 + P3 = C10
-    add(P[1], P[3], C, p, p, cii[1][0]);
- 
-    // P0 + P2 - P1 + P5 = S - P1 + P5 = T + P5 = C11
-    add(P[0], P[2], S, p, p, p);
-    sub(S, P[1], T, p, p, p);
-    add(T, P[5], C, p, p, cii[1][1]);
- 
-}
+
 int main()
 {
-    mat A, B, C;
-    corners ai = { 0, N, 0, N };
-    corners bi = { 0, N, 0, N };
-    corners ci = { 0, N, 0, N };
-    srand(time(0));
-    // identity(A,bi); identity(B,bi);
-    // set(A,ai,2); set(B,bi,2);
-    randk(A, ai, 0, 2);
-    randk(B, bi, 0, 2);
-    print(A, ai, "A");
-    print(B, bi, "B");
-    set(C, ci, 0);
-    // add(A,B,C, ai, bi, ci);
-    mul(A, B, C, ai, bi, ci);
-    print(C, ci, "C");
-    return 0;
+
+    vector<vector<int>> matrix_A = {
+        {14,  7,  23,  5,  18,  9,  6,  12},
+        {3,  15,  8,  11,  7,  20,  13,  14},
+        {21,  12,  9,  17,  8,  15,  7,  22},
+        {6,  18,  11,  12,  9,  3,  20,  15},
+        {17,  22,  5,  13,  19,  12,  14,  8},
+        {10,  14,  8,  21,  13,  9,  16,  11},
+        {9,  20,  15,  7,  22,  18,  6,  12},
+        {13,  11,  19,  8,  14,  10,  16,  23}
+    };
+
+    vector<vector<int>> matrix_B = {
+        {8,  12,  5,  9,  15,  6,  14,  11},
+        {7,  20,  11,  13,  8,  17,  9,  12},
+        {16,  9,  20,  14,  7,  18,  13,  15},
+        {11,  5,  18,  9,  12,  14,  10,  16},
+        {14,  11,  6,  13,  20,  8,  17,  12},
+        {9,  12,  8,  7,  11,  16,  15,  19},
+        {12,  10,  14,  16,  13,  17,  11,  20},
+        {7,  13,  18,  12,  15,  20,  8,  14}
+    };
+
+    auto inicio = high_resolution_clock::now();
+	vector<vector<int> > result_matrix(
+		multiply_matrix(matrix_A, matrix_B));
+    auto fin = high_resolution_clock::now();
+    auto duración = duration_cast<microseconds>(fin - inicio);
+	print("Result Array", result_matrix, 0, 0, ROW_1 - 1,
+		COL_2 - 1);
+    cout << "Tiempo de ejecución: " << duración.count() << " microsegundos" << endl;
 }
+
+// Time Complexity: O(n^3)
+// Code Contributed By: lucasletum
